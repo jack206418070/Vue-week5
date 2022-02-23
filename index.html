@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>week5-前台作業</title>
+    <link rel="stylesheet" href="./all.css" class="css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" class="css"> 
+    <script src="https://unpkg.com/vue@3"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vee-validate/4.5.8/vee-validate.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vee-validate/rules@4.5.8/dist/vee-validate-rules.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vee-validate/i18n@4.5.8/dist/vee-validate-i18n.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <product-modal 
+                ref="productModal"
+                :productdata="tempProduct"
+                @addcart="addCart">
+            </product-modal>
+            <div class="product">
+                <ul>
+                    <li v-for="item in products" :key="item.id">
+                        <div class="product-img" :style="{backgroundImage: `url(${item.imageUrl})`}"></div>
+                        <div class="title">
+                            <h2>{{ item.title }}</h2>
+                            <p>${{ item.price }}</p>
+                        </div>
+                        <div class="desc">
+                            <p>
+                                {{ item.description }}
+                            </p>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary w-50" href="#" :disabled="is_loading === true" @click="openModal(item)" type="button">快速查看</button>
+                            <button class="btn btn-secondary w-50" href="#" @click.prevent="addCart(item.id)" :disabled="is_loading === true" type="button">
+                                <p v-if="is_loading == false">加入購物車</p>
+                                <img v-if="is_loading" src="./Spinner-1s-200px (1).svg" alt="" style="width:30px; height: 24px;">
+                            </button>
+                        </div>
+                    </li>
+                    
+                </ul>
+            </div>
+            <div class="cart">
+                <h2>購物車</h2>
+                <button v-if="carts.length !== 0" type="button" class="btn btn-danger ms-auto" @click="deleteAllCart">清空購物車</button>
+                <ul>
+                    <li>
+                        <p class="title">品名</p>
+                        <p class="unit">數量/單位</p>
+                        <p class="price">單價</p>
+                        <p class="delete">刪除</p>
+                    </li>
+                    <template v-if="carts.length !== 0">
+                        <li v-for="item in carts" :key="item.id">
+                            <p class="title">{{ item.product.title }}</p>
+                            <div class="unit">
+                                <select name="count" id="count" @change="editCart(item)" v-model="item.qty" ref="select" :disabled = 'is_loading === true'>
+                                    <option v-for="count in 20" :key="count" :value="count" :selected="count === item.qty">{{ count }}</option>
+                                </select>
+                                <div class="count">{{ item.product.unit }}</div>
+                            </div>
+                            <p class="price">${{ item.final_total }}</p>
+                            <div class="delete">
+                                <button class="btn btn-danger w-50 mx-auto" href="#" @click.prevent="deleteCart(item.id)" :disabled="is_loading === true">
+                                    <img v-if="is_loading" src="./Spinner-1s-200px (1).svg" alt="" style="width:30px
+                                    ; height: 24px;">
+                                    <p v-else>刪除</p>
+                                </button>
+                            </div>
+                        </li>
+                    </template>
+                    <li v-else>
+                        <h3 style="color:red; text-align:center; font-size: 28px; flex: 0 0 100%;">購物是空的請選購商品</h3>
+                    </li>
+                    <li v-if="carts.length !== 0">
+                        <p class="total_price">總價格  <span> ${{ total_price }}</span> </p>
+                    </li>
+                </ul>
+            </div>
+            <div class="form">
+                <h2>填寫資料</h2>
+                <v-form v-slot="{ errors }" @submit="onSubmit">
+                    <div class="form-control">
+                        <label for="name">訂購人</label>
+                        <v-field
+                        id="name"
+                        name="name"
+                        type="text"
+                        class="form-input"
+                        :class="{ 'is-invalid': errors['name'] }"
+                        placeholder="請輸入 姓名" rules="required"
+                        v-model="form.user.name"
+                        ></v-field>
+                        <error-message name="name" class="invalid-feedback"></error-message>
+                    </div>
+                    <div class="form-control">
+                        <label for="email">信箱</label>
+                        <v-field
+                        id="email"
+                        name="email"
+                        type="email"
+                        class="form-input"
+                        :class="{ 'is-invalid': errors['email'] }"
+                        placeholder="請輸入 Email" rules="email|required"
+                        v-model="form.user.email"
+                        ></v-field>
+                        <error-message name="email" class="invalid-feedback"></error-message>
+                    </div>
+                    <div class="form-control">
+                        <label for="region">地區選擇</label>
+                        <v-field
+                            id="address"
+                            name="address"
+                            class="form-control"
+                            :class="{ 'is-invalid': errors['address'] }"
+                            placeholder="請輸入地區"
+                            rules="required"
+                            as="select"
+                            v-model="form.user.address"
+                        >
+                            <option value="">請選擇地區</option>
+                            <option value="台北市">台北市</option>
+                            <option value="高雄市">高雄市</option>
+                        </v-field>
+                        <error-message name="address" class="invalid-feedback"></error-message>
+                    </div>
+                    <div class="form-control">
+                        <label for="phone" class="form-label">電話</label>
+                        <v-field
+                            id="phone"
+                            name="電話"
+                            type="text"
+                            :class="{ 'is-invalid': errors['電話'] }"
+                            placeholder="請輸入電話"
+                            :rules="isPhone"
+                            v-model="form.user.tel"
+                        ></v-field>
+                        <error-message name="電話" class="invalid-feedback"></error-message>
+                    </div>
+                    <div class="form-control">
+                        <label for="message" class="form-label">留言</label>
+                        <v-field
+                            id="message"
+                            name="message"
+                            type="text"
+                            v-model="form.message"
+                            as="textarea"
+                        ></v-field>
+                    </div>
+                    <button class="btn btn-primary ms-auto" type="submit">送出訂單</button>
+            </v-form>
+            </div>
+            
+        </div>
+    </div>
+    <script type="text/x-template" id="product-modal">
+        <div class="product-modal" :class="{'show': is_modal === true}">
+            <div class="title">
+                <h3>{{ tempProduct.title }}</h3>
+                <i class="fa-solid fa-xmark" @click="closeModal"></i>
+            </div>
+            <div class="content">
+                <div class="product-img" :style="{backgroundImage: `url(${tempProduct.imageUrl})`}"></div>
+                <div class="product-content">
+                    <h4 class="category">{{ tempProduct.category }}</h4>
+                    <p>商品描述： {{ tempProduct.description }}</p>
+                    <p>商品內容： {{ tempProduct.content }}</p>
+                    <p class="origin">原價： $ {{ tempProduct.origin_price }}</p>
+                    <p class="price">特價： $ {{ tempProduct.price }}</p>
+                    <div class="addcart">
+                        <select name="count_modal" id="count_modal" v-model="tempProduct.qty">
+                            <option v-for="count_modal in 20" :key="count_modal" :value="count_modal">{{ count_modal }}</option>
+                        </select>
+                        <button type="button" class="btn btn-primary" @click="$emit('addcart',tempProduct)">加入購物車</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.26.0/axios.min.js"></script>
+    <script src="./all.js"></script>
+</body>
+</html>
